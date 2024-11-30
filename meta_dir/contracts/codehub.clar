@@ -1,19 +1,19 @@
-;; METACANVA: License Transfer
+;; METACANVA: License Status Management and Verification
 
-;; Extending Stage 1
-(define-map licenses 
+;; Extending Stage 2
+(define-map license-status 
   { token-id: (buff 32) } 
-  { owner: principal })
+  { status: (buff 16) })
 
-;; Function to transfer license
-(define-public (transfer-license (token-id (buff 32)) (new-owner principal))
+;; Function to update license status
+(define-public (update-license-status (token-id (buff 32)) (status (buff 16)))
   (let 
     ((license (map-get licenses { token-id: token-id })))
     (if (is-none license)
         (err u102) ;; ERR_NOT_FOUND
         (if (is-eq (get owner (unwrap license u102)) tx-sender)
             (begin
-              (map-set licenses { token-id: token-id } { owner: new-owner })
+              (map-set license-status { token-id: token-id } { status: status })
               (ok token-id)
             )
             (err ERR_NOT_AUTHORIZED)
@@ -22,19 +22,10 @@
   )
 )
 
-;; Update mint-artwork to initialize license owner
-(define-public (mint-artwork (token-id (buff 32)) (artist principal) (collection (buff 64)))
-  (if (not (contains? creators tx-sender))
-      (err ERR_NOT_AUTHORIZED)
-      (if (map-get artworks { token-id: token-id })
-          (err ERR_ALREADY_EXISTS)
-          (begin
-            (map-set artworks 
-              { token-id: token-id } 
-              { artist: artist, collection: collection, timestamp: (block-height) })
-            (map-set licenses { token-id: token-id } { owner: artist })
-            (ok token-id)
-          )
-      )
+;; Function to verify artwork
+(define-read-only (verify-artwork (token-id (buff 32)))
+  (match (map-get artworks { token-id: token-id })
+    artwork (ok { artist: (get artist artwork), collection: (get collection artwork) })
+    (err u102) ;; ERR_NOT_FOUND
   )
 )
